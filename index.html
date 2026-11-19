@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Cucina — Hotel Miralaghi</title>
+<!--
+  Excalibur — pagina del TABLET IN CUCINA (Excalibur 1.56, 18/11/2026). Sta su GitHub Pages: qui NON ci sono dati,
+  né chiavi. L'ID dello script Google arriva dal link, dopo il # (che non viene mai mandato a GitHub):
+    https://pk154565.github.io/excalibur-cucina/#<ID dello script>
+  La pagina legge i dati con un POST di testo semplice e SENZA i cookie di Google (niente «/u/2/» sui tablet con più
+  account Google, niente domanda preventiva del browser). Due schede:
+    PASTI — colazione, pranzo e cena di oggi e domani, e «Attenzione»: le Note sala di chi è in casa e di chi arriva.
+            Se i dati hanno più di 30 minuti l'ora diventa ROSSA (Excalibur in reception spento o senza rete).
+    SPESA — ingredienti a caselle divisi per tipo; «MANDA LA LISTA» la salva su Google con data e ora (mai cancellata).
+            Le quantità si dicono a voce. «＋ Aggiungi una casella»: il cuoco aggiunge una casella FISSA (es. «Burrata»
+            sotto «Latticini»); si vede subito, Excalibur la prende e la mette in IMPOSTAZIONI → Ingredienti per sempre.
+-->
+<style>
+  :root { --sfondo:#EFEBE4; --carta:#fff; --testo:#1d1d1d; --tenue:#5c5c5c; --bordo:#cfc6b8;
+          --arancio:#D4845A; --oliva:#7A8C5A; --oliva-d:#5E6E42; --rosso:#B3261E; --rosso-chiaro:#FCE8E6;
+          --col:#FFF3B0; --pran:#CDEBC4; --cena:#C9DFF7; --ok:#2E7D32; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; background:var(--sfondo); color:var(--testo);
+               font:20px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+           background:var(--arancio); color:#fff; padding:10px 16px; }
+  header h1 { margin:0; font-size:26px; letter-spacing:.5px; margin-right:auto; }
+  .schede { display:flex; gap:10px; }
+  .schede button { font:inherit; font-size:24px; font-weight:700; padding:12px 26px; border-radius:12px; border:3px solid #fff;
+                   background:transparent; color:#fff; min-width:150px; }
+  .schede button.attiva { background:#fff; color:var(--arancio); }
+  #ora { font-size:20px; font-weight:700; padding:8px 14px; border-radius:10px; background:rgba(255,255,255,.18); }
+  #ora.vecchia { background:var(--rosso); color:#fff; animation: lampeggia 1.6s ease-in-out infinite; }
+  @keyframes lampeggia { 50% { opacity:.55; } }
+  main { padding:16px; max-width:1400px; margin:0 auto; }
+  .avviso { background:var(--rosso-chiaro); color:var(--rosso); border:3px solid var(--rosso); border-radius:12px;
+            padding:14px 18px; font-size:22px; font-weight:700; margin-bottom:16px; }
+  .messaggio { text-align:center; padding:50px 10px; color:var(--tenue); font-size:26px; }
+
+  /* PASTI */
+  .giorni { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .giorno { background:var(--carta); border:2px solid var(--bordo); border-radius:16px; padding:12px 14px 16px; }
+  .giorno h2 { margin:0 0 10px; font-size:28px; }
+  .giorno h2 small { font-weight:400; color:var(--tenue); font-size:22px; }
+  .pasti { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+  .pasto { border-radius:12px; text-align:center; padding:8px 4px 10px; border:2px solid rgba(0,0,0,.12); }
+  .pasto .nome { font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+  .pasto .num { font-size:124px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  .p-col { background:var(--col); } .p-pran { background:var(--pran); } .p-cena { background:var(--cena); }
+  .attenzione { margin-top:18px; background:var(--carta); border:3px solid var(--rosso); border-radius:16px; overflow:hidden; }
+  .attenzione > h2 { margin:0; background:var(--rosso); color:#fff; font-size:28px; padding:10px 16px; }
+  .gruppo h3 { margin:0; padding:8px 16px; font-size:22px; background:#F6E3DE; color:var(--rosso); letter-spacing:.5px; }
+  .persona { display:grid; grid-template-columns:120px 1fr; gap:4px 16px; padding:12px 16px; border-top:1px solid var(--bordo); }
+  .persona .cam { grid-row:span 2; font-size:34px; font-weight:800; }
+  .persona .chi { font-size:22px; }
+  .persona .chi .tenue { color:var(--tenue); font-size:19px; }
+  .persona .nota { font-size:27px; font-weight:700; }
+  .nessuna { padding:16px; font-size:22px; color:var(--tenue); }
+
+  /* SPESA */
+  .tipo { margin-bottom:18px; }
+  .tipo h2 { margin:0 0 8px; font-size:26px; color:var(--oliva-d); border-bottom:3px solid var(--oliva); padding-bottom:4px; }
+  .caselle { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:10px; }
+  .casella { font:inherit; font-size:23px; text-align:left; display:flex; align-items:center; gap:12px; min-height:68px;
+             padding:10px 14px; border-radius:12px; border:3px solid var(--bordo); background:var(--carta); color:var(--testo); }
+  .casella .segno { flex:none; width:38px; height:38px; border-radius:8px; border:3px solid var(--oliva); display:flex;
+                    align-items:center; justify-content:center; font-size:28px; font-weight:900; color:#fff; }
+  .casella.scelta { background:#E4EED7; border-color:var(--oliva); font-weight:700; }
+  .casella.scelta .segno { background:var(--oliva); }
+  .altro label { display:block; font-size:24px; font-weight:700; margin:6px 0; color:var(--oliva-d); }
+  .altro textarea { width:100%; min-height:110px; font:inherit; font-size:23px; padding:12px; border-radius:12px; border:3px solid var(--bordo); }
+  .barra { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+           background:#fffdf8; border-top:3px solid var(--oliva); padding:12px 16px; margin:18px -16px 0; }
+  .barra .conta { font-size:24px; font-weight:700; margin-right:auto; }
+  .grande { font:inherit; font-size:26px; font-weight:800; padding:16px 30px; border-radius:14px; border:0; background:var(--oliva); color:#fff; }
+  .grande:disabled { background:#b9b9b9; }
+  .piccolo { font:inherit; font-size:21px; padding:12px 18px; border-radius:12px; border:3px solid var(--bordo); background:#fff; color:var(--testo); }
+  #esito { font-size:23px; font-weight:700; padding:12px 16px; border-radius:12px; margin-top:14px; display:none; }
+  #esito.ok { display:block; background:#E3F1E4; color:var(--ok); border:3px solid var(--ok); }
+  #esito.no { display:block; background:var(--rosso-chiaro); color:var(--rosso); border:3px solid var(--rosso); }
+  .storico { margin-top:22px; background:var(--carta); border:2px solid var(--bordo); border-radius:14px; padding:6px 16px 10px; }
+  .storico h2 { font-size:22px; margin:8px 0; color:var(--tenue); }
+  .storico p { margin:6px 0; font-size:19px; border-top:1px solid var(--bordo); padding-top:6px; }
+  .velo { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:20; padding:16px; }
+  .velo.aperto { display:flex; }
+  .finestra { background:#fff; border-radius:18px; padding:22px; max-width:680px; width:100%; max-height:90vh; overflow:auto; }
+  .finestra h2 { margin:0 0 10px; font-size:30px; }
+  .finestra .elenco { font-size:22px; margin:0 0 16px; }
+  .finestra .pulsanti { display:flex; gap:14px; justify-content:flex-end; flex-wrap:wrap; }
+  .aggiungi { width:100%; font:inherit; font-size:23px; font-weight:700; padding:16px; margin:0 0 18px; border-radius:12px;
+              border:3px dashed var(--oliva); background:#fff; color:var(--oliva-d); }
+  .finestra .campo { display:block; font-size:22px; font-weight:700; margin:12px 0 6px; }
+  .finestra input { width:100%; font:inherit; font-size:24px; padding:12px; border-radius:12px; border:3px solid var(--bordo); }
+  .tipi { display:flex; flex-wrap:wrap; gap:8px; }
+  .tipi button { font:inherit; font-size:21px; padding:10px 16px; border-radius:10px; border:3px solid var(--bordo); background:#fff; color:var(--testo); }
+  .tipi button.scelto { border-color:var(--oliva); background:#E4EED7; font-weight:700; }
+  .finestra .errore { color:var(--rosso); font-weight:700; font-size:21px; min-height:28px; margin:12px 0; }
+
+  @media (max-width: 900px) {
+    .giorni { grid-template-columns:1fr; }
+    .pasto .num { font-size:104px; }
+    .schede button { min-width:0; padding:10px 18px; }
+    header h1 { font-size:22px; width:100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>CUCINA · Hotel Miralaghi</h1>
+  <div class="schede">
+    <button id="b-pasti" class="attiva" type="button">PASTI</button>
+    <button id="b-spesa" type="button">SPESA</button>
+  </div>
+  <div id="ora">…</div>
+</header>
+<main>
+  <section id="v-pasti"><div class="messaggio">Carico i pasti…</div></section>
+  <section id="v-spesa" hidden></section>
+</main>
+<div class="velo" id="velo"><div class="finestra" id="finestra"></div></div>
+
+<script>
+"use strict";
+var VECCHI_MINUTI = 30;                   // oltre: l'ora diventa rossa
+var OGNI_SECONDI = 180;                   // ogni quanto la pagina chiede i dati a Google
+var GIORNI = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
+var STATI = { "IN CASA": "In casa", "PARTE OGGI": "Partono oggi", "ARRIVA OGGI": "Arrivano oggi", "ARRIVA DOMANI": "Arrivano domani" };
+
+function $(i) { return document.getElementById(i); }
+function e(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+  return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]; }); }
+function leggiMemoria(k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (x) { return null; } }
+function scriviMemoria(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (x) {} }
+function isoLocale(d) { var p = function (n) { return String(n).padStart(2, "0"); };
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
+function oraDi(ms) { var d = new Date(ms), p = function (n) { return String(n).padStart(2, "0"); };
+  return p(d.getHours()) + ":" + p(d.getMinutes()); }
+function giornoDi(ms) { var d = new Date(ms), p = function (n) { return String(n).padStart(2, "0"); };
+  return p(d.getDate()) + "/" + p(d.getMonth() + 1); }
+
+// ── indirizzo dello script: dopo il # del link (lo teniamo anche nel tablet) ──
+function indirizzo() {
+  var primo = decodeURIComponent((location.hash || "").replace(/^#/, "").split("&")[0] || "");
+  if (primo) scriviMemoria("cucina_script", primo); else primo = leggiMemoria("cucina_script") || "";
+  if (/^[A-Za-z0-9_-]{20,}$/.test(primo)) return "https://script.google.com/macros/s/" + primo + "/exec";
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/$/.test(primo)) return primo;   // solo per le prove sul PC
+  return "";
+}
+
+// Testo semplice e SENZA cookie: niente «/u/2/» di Google e niente domanda preventiva del browser.
+function chiedi(corpo) {
+  var url = indirizzo();
+  if (!url) return Promise.reject(new Error("link incompleto: manca l'indirizzo di Google dopo il #"));
+  var ctrl = window.AbortController ? new AbortController() : null;
+  var t = ctrl ? setTimeout(function () { ctrl.abort(); }, 25000) : 0;
+  return fetch(url, { method: "POST", body: JSON.stringify(corpo), credentials: "omit", redirect: "follow",
+                      cache: "no-store", signal: ctrl ? ctrl.signal : undefined })
+    .then(function (r) { if (!r.ok) throw new Error("Google ha risposto " + r.status); return r.json(); })
+    .then(function (d) { if (!d || !d.ok) throw new Error((d && d.errore) || "risposta strana da Google"); return d; })
+    .finally(function () { if (t) clearTimeout(t); });
+}
+
+// Gli errori del browser sono in inglese («Failed to fetch»): al cuoco si dice in italiano.
+function testoErrore(x) {
+  if (x && x.name === "AbortError") return "Google non risponde";
+  if (x && x.name === "TypeError") return "niente rete o Google non raggiungibile";
+  return (x && x.message) || "errore";
+}
+
+// ── stato ──
+var S = { dati: null, ricevuto: 0, liste: [], caselle: [], errore: "", scheda: "pasti",
+          scelte: leggiMemoria("cucina_scelte") || {}, altro: leggiMemoria("cucina_altro") || "", invio: false };
+var vecchio = leggiMemoria("cucina_ultimi");
+if (vecchio && vecchio.dati) { S.dati = vecchio.dati; S.ricevuto = vecchio.ricevuto || 0; S.liste = vecchio.liste || [];
+                               S.caselle = vecchio.caselle || []; }
+
+function aggiorna() {
+  return chiedi({ azione: "leggi" }).then(function (d) {
+    S.errore = "";
+    S.dati = d.dati; S.ricevuto = d.ricevuto_ms || 0; S.liste = d.liste || []; S.caselle = d.caselle || [];
+    scriviMemoria("cucina_ultimi", { dati: S.dati, ricevuto: S.ricevuto, liste: S.liste, caselle: S.caselle });
+  }).catch(function (x) {
+    S.errore = testoErrore(x);
+  }).then(disegna);
+}
+
+// ── intestazione: l'ora dell'ultimo aggiornamento ──
+function disegnaOra() {
+  var el = $("ora");
+  if (!S.ricevuto) { el.textContent = S.errore ? "Nessun dato" : "…"; el.className = S.errore ? "vecchia" : ""; return; }
+  var minuti = (Date.now() - S.ricevuto) / 60000;
+  var oggi = isoLocale(new Date()) === isoLocale(new Date(S.ricevuto));
+  el.textContent = "Aggiornato alle " + oraDi(S.ricevuto) + (oggi ? "" : " del " + giornoDi(S.ricevuto));
+  el.className = (minuti > VECCHI_MINUTI || S.errore) ? "vecchia" : "";
+}
+
+function avvisi() {
+  var h = "";
+  if (S.errore) h += '<div class="avviso">Non riesco a leggere i dati da Google (' + e(S.errore) + '). ' +
+                     (S.dati ? "Qui sotto ci sono gli ULTIMI arrivati: potrebbero essere vecchi." : "") + '</div>';
+  if (S.ricevuto && (Date.now() - S.ricevuto) / 60000 > VECCHI_MINUTI)
+    h += '<div class="avviso">ATTENZIONE: i dati hanno più di ' + VECCHI_MINUTI + ' minuti. Excalibur in reception è acceso? ' +
+         'Numeri e allergie potrebbero non essere aggiornati: chiedi in reception.</div>';
+  return h;
+}
+
+// ── PASTI ──
+function etichettaGiorno(iso) {
+  var p = iso.split("-"), d = new Date(+p[0], +p[1] - 1, +p[2]);
+  var oggi = new Date(); oggi.setHours(0, 0, 0, 0);
+  var diff = Math.round((d - oggi) / 864e5);
+  var nome = diff === 0 ? "OGGI" : diff === 1 ? "DOMANI" : diff === -1 ? "IERI" : "";
+  return (nome ? nome + " " : "") + "<small>" + GIORNI[d.getDay()] + " " + p[2] + "/" + p[1] + "</small>";
+}
+
+function disegnaPasti() {
+  var v = $("v-pasti"), h = avvisi(), d = S.dati;
+  if (!d) { v.innerHTML = h + '<div class="messaggio">Ancora nessun dato da Excalibur.</div>'; return; }
+  if (d.oggi && d.oggi !== isoLocale(new Date()))
+    h += '<div class="avviso">Questi dati sono del ' + e(d.oggi.split("-").reverse().join("/")) + ', non di oggi.</div>';
+  h += '<div class="giorni">';
+  (d.giorni || []).forEach(function (g) {
+    h += '<div class="giorno"><h2>' + etichettaGiorno(g.data) + '</h2><div class="pasti">' +
+         '<div class="pasto p-col"><div class="nome">Colazione</div><div class="num">' + (+g.col || 0) + '</div></div>' +
+         '<div class="pasto p-pran"><div class="nome">Pranzo</div><div class="num">' + (+g.pran || 0) + '</div></div>' +
+         '<div class="pasto p-cena"><div class="nome">Cena</div><div class="num">' + (+g.cena || 0) + '</div></div>' +
+         '</div></div>';
+  });
+  h += '</div><div class="attenzione"><h2>⚠ ATTENZIONE — Note sala</h2>';
+  var att = d.attenzione || [];
+  if (!att.length) h += '<div class="nessuna">Nessuna Note sala per chi è in casa o arriva oggi e domani.</div>';
+  Object.keys(STATI).forEach(function (stato) {
+    var righe = att.filter(function (a) { return a.stato === stato; });
+    if (!righe.length) return;
+    h += '<div class="gruppo"><h3>' + STATI[stato].toUpperCase() + '</h3>';
+    righe.forEach(function (a) {
+      var pers = (+a.adulti || 0) + (+a.adulti === 1 ? " adulto" : " adulti") + (+a.bambini ? " + " + a.bambini + (+a.bambini === 1 ? " bambino" : " bambini") +
+                 (a.eta ? " (" + e(a.eta) + ")" : "") : "");
+      h += '<div class="persona"><div class="cam">' + e(a.camere) + '</div>' +
+           '<div class="chi"><b>' + e(a.nome) + '</b> <span class="tenue">· ' + pers + (a.tratt ? " · " + e(a.tratt) : "") + '</span></div>' +
+           '<div class="nota">' + e(a.nota) + '</div></div>';
+    });
+    h += '</div>';
+  });
+  v.innerHTML = h + '</div>';
+}
+
+// ── SPESA ──
+function chiave(t, n) { return t + "|" + n; }
+// Le caselle di Excalibur, più quelle nuove del cuoco che Excalibur non ha ancora preso.
+function ingredienti() {
+  var per = {}, ordine = [], visti = {};
+  ((S.dati && S.dati.ingredienti) || []).concat(S.caselle || []).forEach(function (i) {
+    if (!i || !i.tipo || !i.nome) return;
+    var k = String(i.nome).toLowerCase();
+    if (visti[k]) return;
+    visti[k] = i.tipo;
+    if (!per[i.tipo]) { per[i.tipo] = []; ordine.push(i.tipo); }
+    per[i.tipo].push(i.nome);
+  });
+  return { per: per, ordine: ordine, visti: visti };
+}
+function voceScelte() {
+  var ing = ingredienti(), out = [];
+  ing.ordine.forEach(function (t) { ing.per[t].forEach(function (n) { if (S.scelte[chiave(t, n)]) out.push([t, n]); }); });
+  return out;
+}
+function salvaScelte() { scriviMemoria("cucina_scelte", S.scelte); scriviMemoria("cucina_altro", S.altro); }
+
+function disegnaSpesa() {
+  var v = $("v-spesa"), ing = ingredienti(), h = "";
+  firmaSpesa = firmaDellaSpesa();
+  if (!ing.ordine.length) h += '<div class="messaggio">Nessun ingrediente: aggiungili qui sotto o in Excalibur, IMPOSTAZIONI → Ingredienti.</div>';
+  ing.ordine.forEach(function (t) {
+    h += '<div class="tipo"><h2>' + e(t) + '</h2><div class="caselle">';
+    ing.per[t].forEach(function (n) {
+      var k = chiave(t, n), si = !!S.scelte[k];
+      h += '<button type="button" class="casella' + (si ? ' scelta' : '') + '" data-k="' + e(k) + '">' +
+           '<span class="segno">' + (si ? "✓" : "") + '</span><span>' + e(n) + '</span></button>';
+    });
+    h += '</div></div>';
+  });
+  h += '<button type="button" class="aggiungi" id="aggiungi">＋ Aggiungi una casella (resta per sempre)</button>';
+  h += '<div class="altro"><label for="altro">Altro (scrivi qui quello che non c\'è)</label>' +
+       '<textarea id="altro" maxlength="1000">' + e(S.altro) + '</textarea></div>' +
+       '<div id="esito"></div>' +
+       '<div class="barra"><span class="conta" id="conta"></span>' +
+       '<button type="button" class="piccolo" id="svuota">Svuota</button>' +
+       '<button type="button" class="grande" id="manda">MANDA LA LISTA</button></div>';
+  if (S.liste.length) {
+    h += '<div class="storico"><h2>Ultime liste mandate</h2>';
+    S.liste.forEach(function (l) {
+      var testo = (l.voci || []).map(function (x) { return x[1]; }).join(", ");
+      if (l.altro) testo += (testo ? " · " : "") + l.altro;
+      h += '<p><b>n. ' + (+l.numero) + '</b> — ' + giornoDi(l.ricevuta_ms) + ' alle ' + oraDi(l.ricevuta_ms) + ': ' + e(testo) + '</p>';
+    });
+    h += '</div>';
+  }
+  v.innerHTML = h;
+  Array.prototype.forEach.call(v.querySelectorAll(".casella"), function (b) {
+    b.onclick = function () {
+      var k = b.getAttribute("data-k");
+      if (S.scelte[k]) delete S.scelte[k]; else S.scelte[k] = 1;
+      b.classList.toggle("scelta", !!S.scelte[k]);
+      b.querySelector(".segno").textContent = S.scelte[k] ? "✓" : "";
+      salvaScelte(); contaScelte();
+    };
+  });
+  $("altro").oninput = function () { S.altro = this.value; salvaScelte(); contaScelte(); };
+  $("svuota").onclick = function () {
+    if (!voceScelte().length && !S.altro.trim()) return;
+    apri('<h2>Togliere tutte le spunte?</h2><p class="elenco">La lista sul tablet si svuota. Le liste già mandate restano.</p>' +
+         '<div class="pulsanti"><button class="piccolo" id="no">No</button><button class="grande" id="si">Sì, svuota</button></div>');
+    $("no").onclick = chiudi;
+    $("si").onclick = function () { S.scelte = {}; S.altro = ""; salvaScelte(); chiudi(); disegnaSpesa(); };
+  };
+  $("manda").onclick = confermaInvio;
+  $("aggiungi").onclick = nuovaCasella;
+  contaScelte();
+}
+
+// ── casella nuova (fissa): il cuoco la scrive, Excalibur se la prende ──
+function nuovaCasella() {
+  var ing = ingredienti(), tipo = "";
+  var h = '<h2>Nuova casella</h2>' +
+          '<label class="campo" for="c-nome">Nome (per esempio Burrata)</label><input id="c-nome" maxlength="40" autocomplete="off">' +
+          '<div class="campo">Sotto quale tipo?</div><div class="tipi" id="c-tipi">';
+  ing.ordine.forEach(function (t) { h += '<button type="button" data-t="' + e(t) + '">' + e(t) + '</button>'; });
+  h += '<button type="button" data-t="">＋ Tipo nuovo</button></div>' +
+       '<input id="c-tipo" maxlength="40" autocomplete="off" placeholder="Scrivi il tipo nuovo" hidden>' +
+       '<div class="errore" id="c-errore"></div>' +
+       '<div class="pulsanti"><button class="piccolo" id="no">No, torna</button><button class="grande" id="si">AGGIUNGI</button></div>';
+  apri(h);
+  Array.prototype.forEach.call($("c-tipi").querySelectorAll("button"), function (b) {
+    b.onclick = function () {
+      Array.prototype.forEach.call($("c-tipi").querySelectorAll("button"), function (x) { x.classList.remove("scelto"); });
+      b.classList.add("scelto");
+      tipo = b.getAttribute("data-t");
+      $("c-tipo").hidden = tipo !== "";
+      if (tipo === "") $("c-tipo").focus();
+      $("c-errore").textContent = "";
+    };
+  });
+  $("no").onclick = chiudi;
+  $("si").onclick = function () {
+    var nome = $("c-nome").value.replace(/\s+/g, " ").trim();
+    var t = (tipo === "" ? $("c-tipo").value : tipo).replace(/\s+/g, " ").trim();
+    var c = $("c-tipi").querySelector(".scelto");
+    if (!nome) { $("c-errore").textContent = "Scrivi il nome."; return; }
+    if (!c || !t) { $("c-errore").textContent = "Tocca il tipo (o «＋ Tipo nuovo» e scrivilo)."; return; }
+    var gia = ing.visti[nome.toLowerCase()];
+    if (gia) { $("c-errore").textContent = "«" + nome + "» c'è già, sotto " + gia + "."; return; }
+    $("si").disabled = true; $("si").textContent = "Aggiungo…"; $("c-errore").textContent = "";
+    chiedi({ azione: "casella", tipo: t, nome: nome }).then(function (d) {
+      chiudi();
+      if (!d.gia) S.caselle = (S.caselle || []).concat([{ numero: d.numero, tipo: d.tipo, nome: d.nome }]);
+      S.scelte[chiave(d.tipo, d.nome)] = 1; salvaScelte();      // la aggiunge perché gli serve: già spuntata
+      firmaSpesa = ""; disegna();
+      esito("ok", d.gia ? "«" + d.nome + "» c'era già, sotto " + d.tipo + ": l'ho spuntata."
+                        : "✓ Casella «" + d.nome + "» aggiunta sotto " + d.tipo + ". Resta per sempre. È già spuntata.");
+      aggiorna();
+    }).catch(function (x) {
+      $("si").disabled = false; $("si").textContent = "AGGIUNGI";
+      $("c-errore").textContent = "Non aggiunta (" + testoErrore(x) + "). Riprova tra poco.";
+    });
+  };
+  $("c-nome").focus();
+}
+
+function contaScelte() {
+  var n = voceScelte().length, a = S.altro.trim();
+  $("conta").textContent = n ? ("Scelti: " + n + (a ? " + altro" : "")) : (a ? "Solo «Altro»" : "Niente scelto");
+  $("manda").disabled = S.invio || (!n && !a);
+}
+
+function apri(html) { $("finestra").innerHTML = html; $("velo").classList.add("aperto"); }
+function chiudi() { $("velo").classList.remove("aperto"); }
+
+function confermaInvio() {
+  var voci = voceScelte(), altro = S.altro.trim();
+  if (!voci.length && !altro) return;
+  var elenco = voci.map(function (x) { return e(x[1]); }).join(", ");
+  if (altro) elenco += (elenco ? "<br>" : "") + "<b>Altro:</b> " + e(altro).replace(/\n/g, "<br>");
+  apri('<h2>Mandare la lista?</h2><p class="elenco">' + elenco + '</p>' +
+       '<div class="pulsanti"><button class="piccolo" id="no">No, torna</button><button class="grande" id="si">SÌ, MANDA</button></div>');
+  $("no").onclick = chiudi;
+  $("si").onclick = function () { chiudi(); manda(voci, altro); };
+}
+
+// Il codice della lista resta lo stesso finché la lista non cambia: se la rete cade dopo il salvataggio,
+// rimandarla non la scrive due volte. Se il cuoco la cambia, è una lista nuova.
+function codiceLista(voci, altro) {
+  var firma = JSON.stringify([voci, altro]), p = leggiMemoria("cucina_in_volo");
+  if (p && p.firma === firma) return p.codice;
+  var c = "p-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  scriviMemoria("cucina_in_volo", { firma: firma, codice: c });
+  return c;
+}
+
+function esito(classe, testo) { var el = $("esito"); if (!el) return; el.className = classe; el.textContent = testo; }
+
+function manda(voci, altro) {
+  S.invio = true; contaScelte(); esito("ok", "Mando la lista…");
+  chiedi({ azione: "lista", voci: voci, altro: altro, codice: codiceLista(voci, altro) }).then(function (d) {
+    try { localStorage.removeItem("cucina_in_volo"); } catch (x) {}
+    S.scelte = {}; S.altro = ""; salvaScelte(); S.invio = false;
+    return aggiorna().then(function () {
+      if (S.scheda === "spesa") disegnaSpesa();
+      esito("ok", "✓ Lista n. " + d.numero + " mandata alle " + oraDi(d.ricevuta_ms) + ". È salvata.");
+    });
+  }).catch(function (x) {
+    S.invio = false; contaScelte();
+    esito("no", "LA LISTA NON È PARTITA (" + testoErrore(x) + "). Le spunte restano: riprova tra poco.");
+  });
+}
+
+// ── schede e giro ──
+function mostra(scheda) {
+  S.scheda = scheda;
+  $("b-pasti").classList.toggle("attiva", scheda === "pasti");
+  $("b-spesa").classList.toggle("attiva", scheda === "spesa");
+  $("v-pasti").hidden = scheda !== "pasti";
+  $("v-spesa").hidden = scheda !== "spesa";
+  disegna();
+  window.scrollTo(0, 0);
+}
+function mostraSpesa() { firmaSpesa = ""; mostra("spesa"); }
+// La SPESA si ridisegna solo se cambiano gli ingredienti o le liste, e mai mentre il cuoco scrive in «Altro».
+var firmaSpesa = "";
+function firmaDellaSpesa() { return JSON.stringify([(S.dati && S.dati.ingredienti) || [], S.caselle, S.liste]); }
+function disegna() {
+  disegnaOra();
+  if (S.scheda === "pasti") { disegnaPasti(); return; }
+  if ($("v-spesa").innerHTML && firmaDellaSpesa() === firmaSpesa) return;
+  if (document.activeElement && document.activeElement.id === "altro") return;
+  var esitoPrima = $("esito") ? [$("esito").className, $("esito").textContent] : null;
+  var alto = window.scrollY;
+  disegnaSpesa();
+  if (esitoPrima && esitoPrima[0]) esito(esitoPrima[0], esitoPrima[1]);
+  window.scrollTo(0, alto);
+}
+$("b-pasti").onclick = function () { mostra("pasti"); aggiorna(); };
+$("b-spesa").onclick = mostraSpesa;
+
+// Lo schermo resta acceso finché la pagina è davanti (se il browser lo permette).
+function tieniAcceso() { try { if (navigator.wakeLock) navigator.wakeLock.request("screen").catch(function () {}); } catch (x) {} }
+document.addEventListener("visibilitychange", function () { if (!document.hidden) { tieniAcceso(); aggiorna(); } });
+window.addEventListener("hashchange", aggiorna);
+setInterval(function () { if (!document.hidden) aggiorna(); }, OGNI_SECONDI * 1000);
+setInterval(function () { disegnaOra(); if (S.scheda === "pasti") disegnaPasti(); }, 30000);
+tieniAcceso();
+disegna();
+aggiorna();
+</script>
+</body>
+</html>
