@@ -46,10 +46,16 @@
   .giorno { background:var(--carta); border:2px solid var(--bordo); border-radius:16px; padding:12px 14px 16px; }
   .giorno h2 { margin:0 0 10px; font-size:28px; }
   .giorno h2 small { font-weight:400; color:var(--tenue); font-size:22px; }
-  .pasti { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
-  .pasto { border-radius:12px; text-align:center; padding:8px 4px 10px; border:2px solid rgba(0,0,0,.12); }
-  .pasto .nome { font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
-  .pasto .num { font-size:124px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  /* 1.57: numeri e nomi seguono la larghezza della colonna (telefono, tablet piccolo, tablet grande).
+     Prima erano fissi a 124/104 px: su un telefono i 3 numeri allargavano la pagina e il telefono
+     rimpiccioliva tutto. La riga con «vw» vale per i browser vecchi che non conoscono «cqw». */
+  .pasti { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
+  .pasto { border-radius:12px; text-align:center; padding:8px 4px 10px; border:2px solid rgba(0,0,0,.12);
+           min-width:0; container-type:inline-size; }
+  .pasto .nome { font-size:clamp(12px, 3.4vw, 20px); font-size:clamp(12px, 12cqw, 20px);
+                 font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+  .pasto .num { font-size:clamp(40px, 10vw, 104px); font-size:clamp(40px, 46cqw, 124px);
+                font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
   .p-col { background:var(--col); } .p-pran { background:var(--pran); } .p-cena { background:var(--cena); }
   .gruppo h3 { margin:0; padding:8px 16px; font-size:22px; background:#F6E3DE; color:var(--rosso); letter-spacing:.5px; }
   .persona { display:grid; grid-template-columns:120px 1fr; gap:4px 16px; padding:12px 16px; border-top:1px solid var(--bordo); }
@@ -115,10 +121,37 @@
   .tipi button.scelto { border-color:var(--oliva); background:#E4EED7; font-weight:700; }
   .finestra .errore { color:var(--rosso); font-weight:700; font-size:21px; min-height:28px; margin:12px 0; }
 
+  .nota, .chi, .casella span { overflow-wrap:anywhere; }
+
   @media (max-width: 900px) {
-    .pasto .num { font-size:104px; }
     .schede button { min-width:0; padding:10px 18px; }
     header h1 { font-size:22px; width:100%; }
+  }
+  /* Telefono e tablet piccolo in verticale: tutto un po' più stretto, mai più largo dello schermo */
+  @media (max-width: 600px) {
+    html, body { font-size:18px; }
+    header { padding:8px 10px; gap:8px; }
+    header h1 { font-size:20px; }
+    .schede button { font-size:20px; padding:8px 14px; }
+    #ora { font-size:17px; padding:6px 10px; }
+    main { padding:10px; }
+    .giorno { padding:10px 8px 12px; }
+    .settimana .giorno h2 { font-size:26px; }
+    .giorno h2 small { font-size:19px; }
+    .pasti { gap:6px; }
+    .servizi { gap:8px; }
+    .servizi .titolo { font-size:19px; }
+    .servizio { font-size:19px; gap:8px; min-height:54px; padding:8px 12px; }
+    .servizio .segno { width:30px; height:30px; font-size:22px; }
+    .note-giorno > h3 { font-size:20px; }
+    .gruppo h3 { font-size:19px; padding:6px 10px; }
+    .persona { grid-template-columns:78px 1fr; gap:2px 10px; padding:10px; }
+    .persona .cam { font-size:24px; }
+    .persona .chi { font-size:19px; }
+    .persona .chi .tenue { font-size:17px; }
+    .persona .nota { font-size:22px; }
+    .barra { margin:18px -10px 0; padding:10px; }
+    .grande { font-size:22px; padding:14px 20px; }
   }
 </style>
 </head>
@@ -251,7 +284,7 @@ function barraServizi() {
 }
 
 function riquadroPasti(g) {
-  var accesi = serviziAccesi(), h = '<div class="pasti" style="grid-template-columns:repeat(' + accesi.length + ', 1fr)">';
+  var accesi = serviziAccesi(), h = '<div class="pasti" style="grid-template-columns:repeat(' + accesi.length + ', minmax(0, 1fr))">';
   accesi.forEach(function (s) {
     h += '<div class="pasto ' + s[2] + '"><div class="nome">' + s[1] + '</div><div class="num">' + (+g[s[0]] || 0) + '</div></div>';
   });
