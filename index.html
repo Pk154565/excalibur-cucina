@@ -12,7 +12,9 @@
     https://pk154565.github.io/excalibur-cucina/#<ID dello script>
   La pagina legge i dati con un POST di testo semplice e SENZA i cookie di Google (niente «/u/2/» sui tablet con più
   account Google, niente domanda preventiva del browser). Due schede:
-    PASTI — colazione, pranzo e cena di oggi e domani, e «Attenzione»: le Note sala di chi è in casa e di chi arriva.
+    PASTI — colazione, pranzo e cena di 7 giorni da oggi (1.57; con Excalibur 1.56 oggi e domani), e sotto ogni
+            giorno «Attenzione»: le Note sala di chi quel giorno è in casa, parte o arriva. In alto «Vedo:» con
+            Colazione / Pranzo / Cena: il cuoco sceglie quali servizi vedere (restano nel tablet; le note sempre tutte).
             Se i dati hanno più di 30 minuti l'ora diventa ROSSA (Excalibur in reception spento o senza rete).
     SPESA — ingredienti a caselle divisi per tipo; «MANDA LA LISTA» la salva su Google con data e ora (mai cancellata).
             Le quantità si dicono a voce. «＋ Aggiungi una casella»: il cuoco aggiunge una casella FISSA (es. «Burrata»
@@ -41,7 +43,6 @@
   .messaggio { text-align:center; padding:50px 10px; color:var(--tenue); font-size:26px; }
 
   /* PASTI */
-  .giorni { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .giorno { background:var(--carta); border:2px solid var(--bordo); border-radius:16px; padding:12px 14px 16px; }
   .giorno h2 { margin:0 0 10px; font-size:28px; }
   .giorno h2 small { font-weight:400; color:var(--tenue); font-size:22px; }
@@ -50,15 +51,30 @@
   .pasto .nome { font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
   .pasto .num { font-size:124px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
   .p-col { background:var(--col); } .p-pran { background:var(--pran); } .p-cena { background:var(--cena); }
-  .attenzione { margin-top:18px; background:var(--carta); border:3px solid var(--rosso); border-radius:16px; overflow:hidden; }
-  .attenzione > h2 { margin:0; background:var(--rosso); color:#fff; font-size:28px; padding:10px 16px; }
   .gruppo h3 { margin:0; padding:8px 16px; font-size:22px; background:#F6E3DE; color:var(--rosso); letter-spacing:.5px; }
   .persona { display:grid; grid-template-columns:120px 1fr; gap:4px 16px; padding:12px 16px; border-top:1px solid var(--bordo); }
   .persona .cam { grid-row:span 2; font-size:34px; font-weight:800; }
   .persona .chi { font-size:22px; }
   .persona .chi .tenue { color:var(--tenue); font-size:19px; }
   .persona .nota { font-size:27px; font-weight:700; }
-  .nessuna { padding:16px; font-size:22px; color:var(--tenue); }
+  /* 1.57: quali servizi vedere (scelta del cuoco, tenuta nel tablet) */
+  .servizi { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  .servizi .titolo { font-size:22px; font-weight:700; margin-right:4px; }
+  .servizio { font:inherit; font-size:23px; font-weight:700; display:flex; align-items:center; gap:12px; min-height:64px;
+              padding:10px 20px; border-radius:12px; border:3px solid var(--bordo); background:#fff; color:var(--tenue); }
+  .servizio .segno { flex:none; width:36px; height:36px; border-radius:8px; border:3px solid #9a9a9a; display:flex;
+                     align-items:center; justify-content:center; font-size:26px; font-weight:900; color:#fff; }
+  .servizio.acceso { color:var(--testo); border-color:rgba(0,0,0,.35); }
+  .servizio.acceso .segno { background:var(--oliva-d); border-color:var(--oliva-d); }
+  .servizio.acceso.p-col { background:var(--col); } .servizio.acceso.p-pran { background:var(--pran); }
+  .servizio.acceso.p-cena { background:var(--cena); }
+  /* 1.57: 7 giorni uno sotto l'altro, ogni giorno con le sue Note sala subito sotto */
+  .settimana .giorno { margin-bottom:22px; }
+  .settimana .giorno.oggi { border:4px solid var(--arancio); }
+  .settimana .giorno h2 { font-size:32px; }
+  .note-giorno { margin-top:12px; border:3px solid var(--rosso); border-radius:12px; overflow:hidden; }
+  .note-giorno > h3 { margin:0; background:var(--rosso); color:#fff; font-size:24px; padding:8px 14px; }
+  .senza-note { margin-top:10px; font-size:20px; color:var(--tenue); }
 
   /* SPESA */
   .tipo { margin-bottom:18px; }
@@ -100,7 +116,6 @@
   .finestra .errore { color:var(--rosso); font-weight:700; font-size:21px; min-height:28px; margin:12px 0; }
 
   @media (max-width: 900px) {
-    .giorni { grid-template-columns:1fr; }
     .pasto .num { font-size:104px; }
     .schede button { min-width:0; padding:10px 18px; }
     header h1 { font-size:22px; width:100%; }
@@ -127,7 +142,8 @@
 var VECCHI_MINUTI = 30;                   // oltre: l'ora diventa rossa
 var OGNI_SECONDI = 180;                   // ogni quanto la pagina chiede i dati a Google
 var GIORNI = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
-var STATI = { "IN CASA": "In casa", "PARTE OGGI": "Partono oggi", "ARRIVA OGGI": "Arrivano oggi", "ARRIVA DOMANI": "Arrivano domani" };
+var STATI_GIORNO = { "IN CASA": "In casa", "PARTE": "Partono", "ARRIVA": "Arrivano" };   // 1.57: note di ogni giorno
+var SERVIZI = [["col", "Colazione", "p-col"], ["pran", "Pranzo", "p-pran"], ["cena", "Cena", "p-cena"]];
 
 function $(i) { return document.getElementById(i); }
 function e(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -172,7 +188,8 @@ function testoErrore(x) {
 
 // ── stato ──
 var S = { dati: null, ricevuto: 0, liste: [], caselle: [], errore: "", scheda: "pasti",
-          scelte: leggiMemoria("cucina_scelte") || {}, altro: leggiMemoria("cucina_altro") || "", invio: false };
+          scelte: leggiMemoria("cucina_scelte") || {}, altro: leggiMemoria("cucina_altro") || "", invio: false,
+          servizi: leggiMemoria("cucina_servizi") || { col: true, pran: true, cena: true } };
 var vecchio = leggiMemoria("cucina_ultimi");
 if (vecchio && vecchio.dati) { S.dati = vecchio.dati; S.ricevuto = vecchio.ricevuto || 0; S.liste = vecchio.liste || [];
                                S.caselle = vecchio.caselle || []; }
@@ -216,26 +233,37 @@ function etichettaGiorno(iso) {
   return (nome ? nome + " " : "") + "<small>" + GIORNI[d.getDay()] + " " + p[2] + "/" + p[1] + "</small>";
 }
 
-function disegnaPasti() {
-  var v = $("v-pasti"), h = avvisi(), d = S.dati;
-  if (!d) { v.innerHTML = h + '<div class="messaggio">Ancora nessun dato da Excalibur.</div>'; return; }
-  if (d.oggi && d.oggi !== isoLocale(new Date()))
-    h += '<div class="avviso">Questi dati sono del ' + e(d.oggi.split("-").reverse().join("/")) + ', non di oggi.</div>';
-  h += '<div class="giorni">';
-  (d.giorni || []).forEach(function (g) {
-    h += '<div class="giorno"><h2>' + etichettaGiorno(g.data) + '</h2><div class="pasti">' +
-         '<div class="pasto p-col"><div class="nome">Colazione</div><div class="num">' + (+g.col || 0) + '</div></div>' +
-         '<div class="pasto p-pran"><div class="nome">Pranzo</div><div class="num">' + (+g.pran || 0) + '</div></div>' +
-         '<div class="pasto p-cena"><div class="nome">Cena</div><div class="num">' + (+g.cena || 0) + '</div></div>' +
-         '</div></div>';
+// Quali servizi vedere: li sceglie il cuoco e restano nel tablet (1.57). Almeno uno sempre acceso.
+// Le Note sala si vedono SEMPRE tutte: un'allergia non si nasconde mai.
+function serviziAccesi() {
+  var a = SERVIZI.filter(function (s) { return S.servizi[s[0]]; });
+  return a.length ? a : SERVIZI;
+}
+
+function barraServizi() {
+  var h = '<div class="servizi"><span class="titolo">Vedo:</span>';
+  SERVIZI.forEach(function (s) {
+    var acceso = !!S.servizi[s[0]];
+    h += '<button type="button" class="servizio ' + s[2] + (acceso ? " acceso" : "") + '" data-s="' + s[0] + '">' +
+         '<span class="segno">' + (acceso ? "✓" : "") + '</span>' + s[1] + '</button>';
   });
-  h += '</div><div class="attenzione"><h2>⚠ ATTENZIONE — Note sala</h2>';
-  var att = d.attenzione || [];
-  if (!att.length) h += '<div class="nessuna">Nessuna Note sala per chi è in casa o arriva oggi e domani.</div>';
-  Object.keys(STATI).forEach(function (stato) {
+  return h + '</div>';
+}
+
+function riquadroPasti(g) {
+  var accesi = serviziAccesi(), h = '<div class="pasti" style="grid-template-columns:repeat(' + accesi.length + ', 1fr)">';
+  accesi.forEach(function (s) {
+    h += '<div class="pasto ' + s[2] + '"><div class="nome">' + s[1] + '</div><div class="num">' + (+g[s[0]] || 0) + '</div></div>';
+  });
+  return h + '</div>';
+}
+
+function righeNote(att, stati) {
+  var h = "";
+  Object.keys(stati).forEach(function (stato) {
     var righe = att.filter(function (a) { return a.stato === stato; });
     if (!righe.length) return;
-    h += '<div class="gruppo"><h3>' + STATI[stato].toUpperCase() + '</h3>';
+    h += '<div class="gruppo"><h3>' + stati[stato].toUpperCase() + '</h3>';
     righe.forEach(function (a) {
       var pers = (+a.adulti || 0) + (+a.adulti === 1 ? " adulto" : " adulti") + (+a.bambini ? " + " + a.bambini + (+a.bambini === 1 ? " bambino" : " bambini") +
                  (a.eta ? " (" + e(a.eta) + ")" : "") : "");
@@ -245,7 +273,47 @@ function disegnaPasti() {
     });
     h += '</div>';
   });
+  return h;
+}
+
+// Le note di un giorno. Excalibur 1.57 le manda già divise («note» di ogni giorno). Excalibur 1.56 manda una
+// lista sola per oggi e domani («attenzione»), ma ogni nota ha arrivo e partenza: si dividono qui, con la stessa
+// regola di Excalibur (arriva quel giorno / parte quel giorno / in casa). Così il disegno è sempre lo stesso.
+function noteDelGiorno(g, d) {
+  if (Array.isArray(g.note)) return g.note;
+  var giorno = g.data, out = [];
+  (d.attenzione || []).forEach(function (a) {
+    if (!a.arrivo || !a.partenza || a.arrivo > giorno || a.partenza < giorno) return;
+    var stato = a.arrivo === giorno ? "ARRIVA" : a.partenza === giorno ? "PARTE" : "IN CASA";
+    out.push(Object.assign({}, a, { stato: stato }));
+  });
+  return out;
+}
+
+function disegnaPasti() {
+  var v = $("v-pasti"), h = avvisi(), d = S.dati;
+  if (!d) { v.innerHTML = h + '<div class="messaggio">Ancora nessun dato da Excalibur.</div>'; return; }
+  if (d.oggi && d.oggi !== isoLocale(new Date()))
+    h += '<div class="avviso">Questi dati sono del ' + e(d.oggi.split("-").reverse().join("/")) + ', non di oggi.</div>';
+  h += barraServizi();
+  // I giorni uno sotto l'altro, ognuno con le sue note subito sotto (Excalibur 1.57: 7 giorni; 1.56: oggi e domani)
+  h += '<div class="settimana">';
+  (d.giorni || []).forEach(function (g, i) {
+    var note = noteDelGiorno(g, d);
+    h += '<div class="giorno' + (i === 0 ? " oggi" : "") + '"><h2>' + etichettaGiorno(g.data) + '</h2>' + riquadroPasti(g) +
+         (note.length ? '<div class="note-giorno"><h3>⚠ ATTENZIONE — Note sala</h3>' + righeNote(note, STATI_GIORNO) + '</div>'
+                      : '<div class="senza-note">Nessuna Note sala per questo giorno.</div>') + '</div>';
+  });
   v.innerHTML = h + '</div>';
+  Array.prototype.forEach.call(v.querySelectorAll(".servizio"), function (b) {
+    b.onclick = function () {
+      var s = this.getAttribute("data-s"), nuovo = {};
+      SERVIZI.forEach(function (x) { nuovo[x[0]] = !!S.servizi[x[0]]; });
+      nuovo[s] = !nuovo[s];
+      if (!nuovo.col && !nuovo.pran && !nuovo.cena) return;     // almeno uno resta acceso
+      S.servizi = nuovo; scriviMemoria("cucina_servizi", nuovo); disegnaPasti();
+    };
+  });
 }
 
 // ── SPESA ──
