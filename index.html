@@ -19,6 +19,11 @@
     SPESA — ingredienti a caselle divisi per tipo; «MANDA LA LISTA» la salva su Google con data e ora (mai cancellata).
             Le quantità si dicono a voce. «＋ Aggiungi una casella»: il cuoco aggiunge una casella FISSA (es. «Burrata»
             sotto «Latticini»); si vede subito, Excalibur la prende e la mette in IMPOSTAZIONI → Ingredienti per sempre.
+  1.58 (26/11/2026) — UN LINK PER OGNI PERSONA: il link porta anche il codice dell'accesso, sempre dopo il #:
+    https://pk154565.github.io/excalibur-cucina/#<ID dello script>&k=<codice>
+  La pagina lo tiene nel tablet e lo manda in ogni richiesta. Se Google risponde «link scaduto» (accesso tolto in
+  Excalibur, o link libero di prima dopo la chiusura) — e SOLO allora, mai per «niente rete» — la pagina cancella
+  dal tablet i dati salvati e la lista in corso e mostra a tutto schermo «Questo link non vale più».
 -->
 <style>
   :root { --sfondo:#EFEBE4; --carta:#fff; --testo:#1d1d1d; --tenue:#5c5c5c; --bordo:#cfc6b8;
@@ -123,6 +128,13 @@
 
   .nota, .chi, .casella span { overflow-wrap:anywhere; }
 
+  /* 1.58: link tolto in Excalibur */
+  .scaduto { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+             text-align:center; padding:24px; background:var(--rosso-chiaro); color:var(--rosso); }
+  .scaduto .segnale { font-size:90px; line-height:1; }
+  .scaduto h1 { font-size:44px; margin:20px 0 12px; }
+  .scaduto p { font-size:30px; font-weight:700; color:var(--testo); margin:0; }
+
   @media (max-width: 900px) {
     .schede button { min-width:0; padding:10px 18px; }
     header h1 { font-size:22px; width:100%; }
@@ -190,26 +202,59 @@ function oraDi(ms) { var d = new Date(ms), p = function (n) { return String(n).p
 function giornoDi(ms) { var d = new Date(ms), p = function (n) { return String(n).padStart(2, "0"); };
   return p(d.getDate()) + "/" + p(d.getMonth() + 1); }
 
-// ── indirizzo dello script: dopo il # del link (lo teniamo anche nel tablet) ──
+// ── indirizzo dello script e codice dell'accesso: dopo il # del link (li teniamo anche nel tablet) ──
+// Il link fa testo: se c'è il #, valgono ID e codice del link (anche se il codice manca: link di prima).
+// Senza # (pagina riaperta dai preferiti) valgono quelli tenuti nel tablet.
+function dalLink() {
+  var pezzi = (location.hash || "").replace(/^#/, "").split("&"), id = "", k = "";
+  try { id = decodeURIComponent(pezzi[0] || ""); } catch (x) {}
+  pezzi.slice(1).forEach(function (p) {
+    if (p.indexOf("k=") === 0) { try { k = decodeURIComponent(p.slice(2)); } catch (x) {} }
+  });
+  if (id) { scriviMemoria("cucina_script", id); scriviMemoria("cucina_k", k); }
+  else { id = leggiMemoria("cucina_script") || ""; k = leggiMemoria("cucina_k") || ""; }
+  return { id: id, k: k };
+}
+
 function indirizzo() {
-  var primo = decodeURIComponent((location.hash || "").replace(/^#/, "").split("&")[0] || "");
-  if (primo) scriviMemoria("cucina_script", primo); else primo = leggiMemoria("cucina_script") || "";
+  var primo = dalLink().id;
   if (/^[A-Za-z0-9_-]{20,}$/.test(primo)) return "https://script.google.com/macros/s/" + primo + "/exec";
   if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/$/.test(primo)) return primo;   // solo per le prove sul PC
   return "";
 }
 
+var LINK_SCADUTO = "link scaduto";        // la parola fissa dello script (Codice.gs, CUCINA_LINK_SCADUTO)
+
 // Testo semplice e SENZA cookie: niente «/u/2/» di Google e niente domanda preventiva del browser.
 function chiedi(corpo) {
-  var url = indirizzo();
+  var url = indirizzo(), k = dalLink().k;
   if (!url) return Promise.reject(new Error("link incompleto: manca l'indirizzo di Google dopo il #"));
+  if (k) corpo = Object.assign({ k: k }, corpo);
   var ctrl = window.AbortController ? new AbortController() : null;
   var t = ctrl ? setTimeout(function () { ctrl.abort(); }, 25000) : 0;
   return fetch(url, { method: "POST", body: JSON.stringify(corpo), credentials: "omit", redirect: "follow",
                       cache: "no-store", signal: ctrl ? ctrl.signal : undefined })
     .then(function (r) { if (!r.ok) throw new Error("Google ha risposto " + r.status); return r.json(); })
-    .then(function (d) { if (!d || !d.ok) throw new Error((d && d.errore) || "risposta strana da Google"); return d; })
+    .then(function (d) {
+      if (d && d.ok === false && d.errore === LINK_SCADUTO) { linkScaduto(); throw new Error(LINK_SCADUTO); }
+      if (!d || !d.ok) throw new Error((d && d.errore) || "risposta strana da Google");
+      return d;
+    })
     .finally(function () { if (t) clearTimeout(t); });
+}
+
+// Link tolto in Excalibur (o link libero di prima): via dal tablet tutto quello che la pagina aveva salvato
+// (pasti, Note sala, liste, la lista in corso) e un messaggio a tutto schermo. Solo con la risposta «link scaduto»
+// di Google: senza rete non si cancella niente.
+var scaduto = false;
+function linkScaduto() {
+  if (scaduto) return;
+  scaduto = true;
+  ["cucina_ultimi", "cucina_scelte", "cucina_altro", "cucina_in_volo", "cucina_script", "cucina_k", "cucina_servizi"]
+    .forEach(function (k) { try { localStorage.removeItem(k); } catch (x) {} });
+  S.dati = null; S.liste = []; S.caselle = []; S.scelte = {}; S.altro = ""; S.ricevuto = 0;
+  document.body.innerHTML = '<div class="scaduto"><div class="segnale">⛔</div><h1>Questo link non vale più.</h1>' +
+    '<p>Chiedi in reception il link nuovo.</p></div>';
 }
 
 // Gli errori del browser sono in inglese («Failed to fetch»): al cuoco si dice in italiano.
@@ -228,6 +273,7 @@ if (vecchio && vecchio.dati) { S.dati = vecchio.dati; S.ricevuto = vecchio.ricev
                                S.caselle = vecchio.caselle || []; }
 
 function aggiorna() {
+  if (scaduto) return Promise.resolve();
   return chiedi({ azione: "leggi" }).then(function (d) {
     S.errore = "";
     S.dati = d.dati; S.ricevuto = d.ricevuto_ms || 0; S.liste = d.liste || []; S.caselle = d.caselle || [];
@@ -239,6 +285,7 @@ function aggiorna() {
 
 // ── intestazione: l'ora dell'ultimo aggiornamento ──
 function disegnaOra() {
+  if (scaduto) return;
   var el = $("ora");
   if (!S.ricevuto) { el.textContent = S.errore ? "Nessun dato" : "…"; el.className = S.errore ? "vecchia" : ""; return; }
   var minuti = (Date.now() - S.ricevuto) / 60000;
@@ -324,6 +371,7 @@ function noteDelGiorno(g, d) {
 }
 
 function disegnaPasti() {
+  if (scaduto) return;
   var v = $("v-pasti"), h = avvisi(), d = S.dati;
   if (!d) { v.innerHTML = h + '<div class="messaggio">Ancora nessun dato da Excalibur.</div>'; return; }
   if (d.oggi && d.oggi !== isoLocale(new Date()))
@@ -464,6 +512,7 @@ function nuovaCasella() {
                         : "✓ Casella «" + d.nome + "» aggiunta sotto " + d.tipo + ". Resta per sempre. È già spuntata.");
       aggiorna();
     }).catch(function (x) {
+      if (scaduto) return;
       $("si").disabled = false; $("si").textContent = "AGGIUNGI";
       $("c-errore").textContent = "Non aggiunta (" + testoErrore(x) + "). Riprova tra poco.";
     });
@@ -472,6 +521,7 @@ function nuovaCasella() {
 }
 
 function contaScelte() {
+  if (scaduto) return;
   var n = voceScelte().length, a = S.altro.trim();
   $("conta").textContent = n ? ("Scelti: " + n + (a ? " + altro" : "")) : (a ? "Solo «Altro»" : "Niente scelto");
   $("manda").disabled = S.invio || (!n && !a);
@@ -513,6 +563,7 @@ function manda(voci, altro) {
       esito("ok", "✓ Lista n. " + d.numero + " mandata alle " + oraDi(d.ricevuta_ms) + ". È salvata.");
     });
   }).catch(function (x) {
+    if (scaduto) return;
     S.invio = false; contaScelte();
     esito("no", "LA LISTA NON È PARTITA (" + testoErrore(x) + "). Le spunte restano: riprova tra poco.");
   });
@@ -533,6 +584,7 @@ function mostraSpesa() { firmaSpesa = ""; mostra("spesa"); }
 var firmaSpesa = "";
 function firmaDellaSpesa() { return JSON.stringify([(S.dati && S.dati.ingredienti) || [], S.caselle, S.liste]); }
 function disegna() {
+  if (scaduto) return;
   disegnaOra();
   if (S.scheda === "pasti") { disegnaPasti(); return; }
   if ($("v-spesa").innerHTML && firmaDellaSpesa() === firmaSpesa) return;
@@ -549,7 +601,8 @@ $("b-spesa").onclick = mostraSpesa;
 // Lo schermo resta acceso finché la pagina è davanti (se il browser lo permette).
 function tieniAcceso() { try { if (navigator.wakeLock) navigator.wakeLock.request("screen").catch(function () {}); } catch (x) {} }
 document.addEventListener("visibilitychange", function () { if (!document.hidden) { tieniAcceso(); aggiorna(); } });
-window.addEventListener("hashchange", aggiorna);
+// Link nuovo incollato sopra quello scaduto: si riparte da capo.
+window.addEventListener("hashchange", function () { if (scaduto) location.reload(); else aggiorna(); });
 setInterval(function () { if (!document.hidden) aggiorna(); }, OGNI_SECONDI * 1000);
 setInterval(function () { disegnaOra(); if (S.scheda === "pasti") disegnaPasti(); }, 30000);
 tieniAcceso();
